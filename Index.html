@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Vendor Progress Report</title>
+  <style>
+  :root {
+    --navy: #1f4e78;
+    --navy-dark: #163a58;
+    --accent: #2e86de;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --border: #dde3ea;
+    --text: #23303f;
+    --muted: #6b7a8d;
+    --green: #2e9e5b;
+    --amber: #d69e2e;
+    --red: #d9534f;
+    font-family: 'Segoe UI', Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; }
+  a { color: var(--accent); }
+  #app { display: flex; height: 100vh; overflow: hidden; }
+
+  /* Sidebar */
+  #sidebar { width: 300px; background: var(--navy); color: #fff; display: flex; flex-direction: column; flex-shrink: 0; }
+  #sidebar h1 { font-size: 16px; padding: 16px; margin: 0; border-bottom: 1px solid rgba(255,255,255,.15); }
+  #sidebar .subtitle { font-size: 11px; opacity: .7; font-weight: normal; display:block; margin-top:2px;}
+  #vendorFilter { margin: 12px; padding: 8px; border-radius: 6px; border: none; }
+  #poList { flex: 1; overflow-y: auto; padding: 0 8px; }
+  .po-item { background: rgba(255,255,255,.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: .15s; }
+  .po-item:hover { background: rgba(255,255,255,.15); }
+  .po-item.active { background: var(--accent); }
+  .po-item .po-title { font-weight: 600; font-size: 13px; }
+  .po-item .po-sub { font-size: 11px; opacity: .75; }
+  .po-item .po-bar { height: 4px; background: rgba(255,255,255,.2); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .po-item .po-bar-fill { height: 100%; background: #7ee787; }
+  #sidebarActions { padding: 12px; border-top: 1px solid rgba(255,255,255,.15); display: flex; gap: 8px; }
+
+  /* Main */
+  #main { flex: 1; overflow-y: auto; }
+  #topbar { background: #fff; border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; }
+  #topbar h2 { margin: 0; font-size: 18px; }
+  #topbar .meta { color: var(--muted); font-size: 12px; }
+  #tabs { display: flex; gap: 4px; padding: 0 24px; background: #fff; border-bottom: 1px solid var(--border); }
+  .tab-btn { border: none; background: none; padding: 12px 14px; cursor: pointer; font-size: 13px; color: var(--muted); border-bottom: 3px solid transparent; }
+  .tab-btn.active { color: var(--navy); border-bottom-color: var(--accent); font-weight: 600; }
+  #content { padding: 20px 24px 60px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .empty-state { color: var(--muted); text-align: center; padding: 80px 20px; }
+
+  /* Cards / grid */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .card h3 { margin: 0 0 12px; font-size: 14px; color: var(--navy); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .field label { display:block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
+
+  /* Buttons */
+  button { font-family: inherit; }
+  .btn { border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px; cursor: pointer; background: var(--accent); color: #fff; }
+  .btn:hover { opacity: .9; }
+  .btn.secondary { background: #eef2f7; color: var(--navy); }
+  .btn.danger { background: var(--red); color: #fff; }
+  .btn.sm { padding: 5px 10px; font-size: 12px; }
+  .btn.block { width: 100%; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { padding: 7px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { background: #eef2f7; color: var(--navy); font-weight: 600; position: sticky; top: 0; }
+  tr:hover td { background: #fafcff; }
+  td input, td select { width: 100%; border: 1px solid transparent; background: transparent; padding: 4px; border-radius: 4px; font-size: 12.5px; font-family: inherit; }
+  td input:focus, td select:focus { border-color: var(--accent); background: #fff; }
+  .row-actions { white-space: nowrap; }
+  .num { text-align: right; }
+
+  .progress-total { display: flex; align-items: center; gap: 14px; }
+  .progress-total .pct { font-size: 30px; font-weight: 700; color: var(--navy); }
+  .progress-track { flex: 1; height: 10px; background: #eef2f7; border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge.open { background: #fdecea; color: var(--red); }
+  .badge.progress { background: #fff6dd; color: var(--amber); }
+  .badge.closed, .badge.approved, .badge.done { background: #e6f6ec; color: var(--green); }
+
+  /* Modal */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(15,25,35,.5); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: #fff; border-radius: 10px; width: 420px; max-width: 92vw; padding: 20px; max-height: 88vh; overflow-y: auto; }
+  .modal h3 { margin-top: 0; }
+  .modal .field { margin-bottom: 10px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+  #toast { position: fixed; bottom: 20px; right: 20px; background: var(--navy-dark); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; opacity: 0; transform: translateY(10px); transition: .25s; pointer-events: none; z-index: 100; }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .table-wrap { overflow-x: auto; }
+  .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.5); border-top-color:#fff; border-radius:50%; animation: spin .7s linear infinite; vertical-align:-2px; margin-right:6px;}
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Login screen */
+  #loginScreen { position: fixed; inset: 0; background: linear-gradient(135deg, var(--navy), var(--navy-dark)); display: flex; align-items: center; justify-content: center; z-index: 200; }
+  #loginScreen.hidden { display: none; }
+  .login-card { background: #fff; border-radius: 14px; padding: 32px; width: 340px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+  .login-card h1 { font-size: 18px; margin: 0 0 2px; color: var(--navy); }
+  .login-card p.sub { color: var(--muted); font-size: 12px; margin: 0 0 20px; }
+  .login-card .field { margin-bottom: 12px; }
+  .login-card .error { color: var(--red); font-size: 12px; min-height: 16px; margin-bottom: 8px; }
+  .login-hint { margin-top: 16px; font-size: 11px; color: var(--muted); background: #f4f6f9; border-radius: 8px; padding: 10px; line-height: 1.6; }
+
+  /* Topbar user badge */
+  #userBadge { display: flex; align-items: center; gap: 10px; }
+  .role-chip { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 700; text-transform: uppercase; }
+  .role-chip.Admin { background: #e6f6ec; color: var(--green); }
+  .role-chip.Vendor { background: #eaf2fd; color: var(--accent); }
+  .role-chip.User { background: #f1eefc; color: #7c5fd6; }
+
+  #app.hidden { display: none; }
+  .view-only-note { font-size: 11px; color: var(--muted); background: #f4f6f9; padding: 6px 10px; border-radius: 6px; margin-bottom: 10px; }
+
+  /* Top loading bar */
+  #topLoadingBar { position: fixed; top: 0; left: 0; height: 3px; width: 0%; background: linear-gradient(90deg, var(--accent), var(--green)); z-index: 300; opacity: 0; }
+  #topLoadingBar.active { opacity: 1; }
+
+  /* Content loader (shown while a PO workspace is being fetched) */
+  #contentLoader { display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 90px 20px; color: var(--muted); font-size: 13px; }
+  .spinner-lg { width: 34px; height: 34px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+
+  /* Per-field save feedback */
+  td input.field-saving, td select.field-saving { border-color: var(--amber) !important; background: #fffdf2 !important; }
+  td input.field-saved, td select.field-saved { border-color: var(--green) !important; background: #f3fbf5 !important; transition: border-color .4s, background .4s; }
+
+  /* Sidebar footer */
+  #sidebarFooter { padding: 10px 12px 14px; border-top: 1px solid rgba(255,255,255,.15); }
+  #sidebarFooter .sf-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  #sidebarFooter .sf-row .btn { flex: 1; }
+  #lastSync { font-size: 10.5px; color: rgba(255,255,255,.55); text-align: center; }
+  #sidebarFooter .sf-version { font-size: 10px; color: rgba(255,255,255,.4); text-align: center; margin-top: 6px; }
+
+  /* Page footer (bottom of main content) */
+  #pageFooter { text-align: center; color: var(--muted); font-size: 11.5px; padding: 18px 20px 26px; border-top: 1px solid var(--border); margin-top: 24px; }
+  #pageFooter a { color: var(--muted); text-decoration: underline; }
+
+  /* Print */
+  .print-only { display: none; }
+  @media print {
+    body * { visibility: hidden; }
+    #printArea, #printArea * { visibility: visible; }
+    #printArea { display: block !important; position: absolute; top: 0; left: 0; width: 100%; padding: 10px 24px; }
+    #printArea h1 { font-size: 18px; margin-bottom: 4px; }
+    #printArea table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+    #printArea th, #printArea td { border: 1px solid #999; padding: 5px 8px; text-align: left; }
+    #printArea th { background: #eee; }
+  }
+</style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+</head>
+<body>
+<div id="topLoadingBar"></div>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>Vendor Progress Report</h1>
+    <p class="sub">Masuk untuk melanjutkan</p>
+    <div class="error" id="loginError"></div>
+    <div class="field"><label>Username</label><input id="loginUsername" type="text" autocomplete="username"></div>
+    <div class="field"><label>Password</label><input id="loginPassword" type="password" autocomplete="current-password"></div>
+    <button class="btn block" id="btnLogin">Login</button>
+    <div class="login-hint">
+      Demo akun: <b>admin/admin123</b> (full access) ·
+      <b>vendor1/vendor123</b> (vendor) · <b>viewer/viewer123</b> (view only)
+    </div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+
+  <!-- ============ SIDEBAR ============ -->
+  <div id="sidebar">
+    <h1>Vendor Progress Report
+      <span class="subtitle">Multi-Vendor Tracker</span>
+    </h1>
+    <select id="vendorFilter"><option value="">All Vendors</option></select>
+    <div id="poList"><div class="empty-state" style="color:rgba(255,255,255,.6);"><span class="spinner"></span>Memuat...</div></div>
+    <div id="sidebarActions">
+      <button class="btn secondary block" id="btnAddVendor">+ Vendor</button>
+      <button class="btn block" id="btnAddPO">+ PO</button>
+    </div>
+    <div id="sidebarFooter">
+      <div class="sf-row">
+        <button class="btn secondary sm" id="btnRefreshData">⟳ Refresh</button>
+        <button class="btn secondary sm" id="btnPrintAll">🖨 Print All Vendors</button>
+      </div>
+      <div id="lastSync">Belum disegarkan</div>
+      <div class="sf-version">Vendor Progress Report · v1.0</div>
+    </div>
+  </div>
+
+  <!-- ============ MAIN ============ -->
+  <div id="main">
+    <div id="topbar">
+      <div>
+        <h2 id="poTitle">Pilih Purchase Order</h2>
+        <div class="meta" id="poMeta"></div>
+      </div>
+      <div id="userBadge">
+        <button class="btn secondary sm" id="btnEditPO" style="display:none;">Edit PO Info</button>
+        <button class="btn danger sm" id="btnDeletePO" style="display:none;">Delete PO</button>
+        <button class="btn secondary sm" id="btnManageUsers" style="display:none;">Manage Users</button>
+        <span id="userName" style="font-size:13px;font-weight:600;"></span>
+        <span class="role-chip" id="userRoleChip"></span>
+        <button class="btn secondary sm" id="btnLogout">Logout</button>
+      </div>
+    </div>
+
+    <div id="tabs" style="display:none;">
+      <button class="tab-btn active" data-tab="summary">Summary</button>
+      <button class="tab-btn" data-tab="milestones">Milestone & Progress</button>
+      <button class="tab-btn" data-tab="scurve">S-Curve</button>
+      <button class="tab-btn" data-tab="documents">Documents Status</button>
+      <button class="tab-btn" data-tab="subvendor">Sub-Vendor / Material</button>
+    </div>
+
+    <div id="content">
+      <div id="panel-welcome" class="empty-state">
+        Pilih Purchase Order di sebelah kiri, atau klik <b>+ Vendor</b> lalu <b>+ PO</b> untuk mulai.
+      </div>
+
+      <div id="contentLoader">
+        <div class="spinner-lg"></div>
+        <div>Memuat data...</div>
+      </div>
+
+      <div id="panel-summary" class="panel">
+        <div class="toolbar"><h3 style="margin:0;font-size:16px;">Ringkasan PO</h3>
+          <button class="btn secondary sm" id="btnPrintSummary">🖨 Print Summary</button></div>
+        <div class="card">
+          <h3>PO Information</h3>
+          <div class="grid" id="poInfoGrid"></div>
+        </div>
+        <div class="card">
+          <h3>Total Weighted Progress</h3>
+          <div class="progress-total">
+            <div class="pct" id="totalPct">0%</div>
+            <div class="progress-track"><div class="progress-fill" id="totalFill" style="width:0%;"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Milestone Summary</h3>
+          <div class="table-wrap"><table id="summaryTable">
+            <thead><tr><th>Activity</th><th class="num">Weight</th><th class="num">Achieved %</th><th class="num">Earned</th></tr></thead>
+            <tbody></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div id="panel-milestones" class="panel">
+        <div class="card">
+          <div class="toolbar"><h3 style="margin:0;">Milestone & Detail Progress</h3>
+            <button class="btn sm" id="btnAddMilestone">+ Add Milestone</button></div>
+          <div class="table-wrap"><table id="milestonesTable">
+            <thead><tr>
+              <th>Activity</th><th>Detail Activity</th>
+              <th>Plan Start</th><th>Plan Finish</th><th>Actual Start</th><th>Actual Finish</th>
+              <th class="num">Weight</th><th class="num">Last %</th><th class="num">This %</th><th class="num">Achieved %</th>
+              <th>Details</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div id="panel-scurve" class="panel">
+        <div class="card">
+          <h3>Cumulative Progress (S-Curve)</h3>
+          <canvas id="scurveChart" height="90"></canvas>
+        </div>
+        <div class="card">
+          <div class="toolbar"><h3 style="margin:0;">Data Points</h3>
+            <button class="btn sm" id="btnAddSCurve">+ Add Period</button></div>
+          <div class="table-wrap"><table id="scurveTable">
+            <thead><tr><th>Period</th><th>Plan Date</th><th>Actual Date</th><th class="num">Plan %</th><th class="num">Actual %</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div id="panel-documents" class="panel">
+        <div class="card">
+          <div class="toolbar"><h3 style="margin:0;">Documents Status</h3>
+            <button class="btn sm" id="btnAddDocument">+ Add Document</button></div>
+          <div class="table-wrap"><table id="documentsTable">
+            <thead><tr>
+              <th>Doc No.</th><th>Title</th><th>Rev</th><th>Status</th>
+              <th>Plan Submit</th><th>Plan Approve</th><th>Actual Submit</th><th>Actual Approve</th>
+              <th>Remark</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div id="panel-subvendor" class="panel">
+        <div class="card">
+          <div class="toolbar"><h3 style="margin:0;">Sub-Vendor / Bought-out Material</h3>
+            <button class="btn sm" id="btnAddItem">+ Add Item</button></div>
+          <div class="table-wrap"><table id="subvendorTable">
+            <thead><tr>
+              <th>Description</th><th>Spec</th><th>Qty Req.</th><th>Unit</th>
+              <th>Manufacturer</th><th>COO</th><th>Delivery</th><th>ETA Shop</th>
+              <th>Arrival Date</th><th class="num">Arrived</th><th class="num">Balance</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div id="pageFooter">
+        Vendor Progress Report — Multi-Vendor Tracker &nbsp;·&nbsp;
+        Data tersimpan di Google Sheets &nbsp;·&nbsp;
+        &copy; <span id="footerYear"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL (generic form host) ============ -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<div id="printArea" class="print-only"></div>
+
+<div id="toast"></div>
+
+<script>
+/* ==========================================================================
+   Client.html — front-end logic for the VPR web app.
+   The UI is hosted externally (e.g. GitHub Pages); it talks to the Apps
+   Script backend over fetch() as a JSON API (no google.script.run, since
+   this page is NOT served from inside Apps Script's HtmlService).
+   ========================================================================== */
+
+/* >>> PASTE YOUR DEPLOYED APPS SCRIPT WEB APP URL HERE (ends with /exec) <<< */
+var API_URL = 'https://script.google.com/macros/s/PASTE_YOUR_DEPLOYMENT_ID/exec';
+
+var STATE = { auth: null, vendors: [], pos: [], currentPOId: null, workspace: null, chart: null };
+
+document.addEventListener('DOMContentLoaded', function () {
+  bindStaticEvents();
+  bindAuthEvents();
+  document.getElementById('footerYear').textContent = new Date().getFullYear();
+
+  if (wasBrowserReload_()) {
+    // A real browser refresh (F5 / Ctrl+R / reload button) always forces a
+    // fresh login — this is intentional, distinct from the in-app "Refresh"
+    // button which just re-fetches data without touching the session.
+    localStorage.removeItem('vpr_auth');
+  } else {
+    var saved = localStorage.getItem('vpr_auth');
+    if (saved) {
+      try {
+        STATE.auth = JSON.parse(saved);
+        showApp_();
+        loadDashboard();
+      } catch (e) { localStorage.removeItem('vpr_auth'); }
+    }
+  }
+});
+
+/** True if the current page load was triggered by an actual browser reload
+ *  (F5, Ctrl+R, the browser's own reload button) rather than a first visit,
+ *  a link/bookmark navigation, or back/forward. */
+function wasBrowserReload_() {
+  try {
+    var entries = performance.getEntriesByType('navigation');
+    if (entries && entries.length) return entries[0].type === 'reload';
+    if (performance.navigation) return performance.navigation.type === 1; // legacy API
+  } catch (e) { /* ignore */ }
+  return false;
+}
+
+function toast(msg, isError) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isError ? '#d9534f' : '#163a58';
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function () { t.classList.remove('show'); }, 2600);
+}
+
+/* ---------------------------------------------------------------- LOADING INDICATORS */
+
+var _pendingRequests = 0;
+function showTopLoading_() {
+  _pendingRequests++;
+  var bar = document.getElementById('topLoadingBar');
+  bar.classList.add('active');
+  bar.style.transition = 'width .3s ease';
+  bar.style.width = '75%';
+}
+function hideTopLoading_() {
+  _pendingRequests = Math.max(0, _pendingRequests - 1);
+  if (_pendingRequests > 0) return;
+  var bar = document.getElementById('topLoadingBar');
+  bar.style.width = '100%';
+  setTimeout(function () {
+    bar.classList.remove('active');
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+  }, 200);
+}
+
+/** Toggles a button into a disabled "Saving..." state with a small spinner. */
+function setBusy_(btnId, busy) {
+  var btn = document.getElementById(btnId);
+  if (!btn) return;
+  if (busy) {
+    btn.dataset.label = btn.dataset.label || btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Saving...';
+  } else {
+    btn.disabled = false;
+    btn.textContent = btn.dataset.label || btn.textContent;
+  }
+}
+
+/** Subtle per-field visual feedback: amber border while saving, brief green flash when done. */
+function markSaving_(el) {
+  if (!el) return;
+  el.classList.remove('field-saved');
+  el.classList.add('field-saving');
+}
+function markSaved_(el) {
+  if (!el) return;
+  el.classList.remove('field-saving');
+  el.classList.add('field-saved');
+  setTimeout(function () { el.classList.remove('field-saved'); }, 700);
+}
+
+function showContentLoading_() {
+  document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
+  document.getElementById('panel-welcome').style.display = 'none';
+  document.getElementById('contentLoader').style.display = 'flex';
+}
+function hideContentLoading_() {
+  document.getElementById('contentLoader').style.display = 'none';
+}
+
+/* ---------------------------------------------------------------- AUTH */
+
+function bindAuthEvents() {
+  document.getElementById('btnLogin').addEventListener('click', doLogin);
+  document.getElementById('loginPassword').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') doLogin();
+  });
+  document.getElementById('btnLogout').addEventListener('click', doLogout);
+}
+
+function doLogin() {
+  var username = document.getElementById('loginUsername').value.trim();
+  var password = document.getElementById('loginPassword').value;
+  var errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  if (!username || !password) { errEl.textContent = 'Username dan password wajib diisi'; return; }
+
+  var btn = document.getElementById('btnLogin');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Masuk...';
+
+  apiCall('login', { username: username, password: password }, 'POST').then(function (data) {
+    STATE.auth = data;
+    localStorage.setItem('vpr_auth', JSON.stringify(data));
+    showApp_();
+    loadDashboard();
+  }).catch(function (err) {
+    errEl.textContent = err.message || 'Login gagal';
+  }).finally(function () {
+    btn.disabled = false;
+    btn.textContent = 'Login';
+  });
+}
+
+function doLogout(reason) {
+  STATE.auth = null;
+  STATE.currentPOId = null;
+  STATE.workspace = null;
+  localStorage.removeItem('vpr_auth');
+  stopIdleTimer_();
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPassword').value = '';
+  if (reason) document.getElementById('loginError').textContent = reason;
+}
+
+function showApp_() {
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('userName').textContent = STATE.auth.name;
+  var chip = document.getElementById('userRoleChip');
+  chip.textContent = STATE.auth.role;
+  chip.className = 'role-chip ' + STATE.auth.role;
+
+  var isAdmin = STATE.auth.role === 'Admin';
+  document.getElementById('sidebarActions').style.display = isAdmin ? 'flex' : 'none';
+  document.getElementById('btnManageUsers').style.display = isAdmin ? 'inline-block' : 'none';
+
+  startIdleTimer_();
+}
+
+/* ---------------------------------------------------------------- IDLE TIMEOUT (15 min) */
+
+var IDLE_LIMIT_MS = 15 * 60 * 1000;
+var _idleTimer = null;
+var _idleActivityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+var _idleHandlerBound = false;
+
+function startIdleTimer_() {
+  if (!_idleHandlerBound) {
+    _idleActivityEvents.forEach(function (evt) {
+      document.addEventListener(evt, _onUserActivity_, { passive: true });
+    });
+    _idleHandlerBound = true;
+  }
+  _armIdleTimer_();
+}
+
+function stopIdleTimer_() {
+  clearTimeout(_idleTimer);
+}
+
+function _onUserActivity_() {
+  if (STATE.auth) _armIdleTimer_();
+}
+
+function _armIdleTimer_() {
+  clearTimeout(_idleTimer);
+  _idleTimer = setTimeout(function () {
+    doLogout('Sesi berakhir karena 15 menit tidak ada aktivitas. Silakan login kembali.');
+  }, IDLE_LIMIT_MS);
+}
+
+function isAdmin() { return STATE.auth && STATE.auth.role === 'Admin'; }
+function isVendor() { return STATE.auth && STATE.auth.role === 'Vendor'; }
+function isViewer() { return STATE.auth && STATE.auth.role === 'User'; }
+function canEdit() { return isAdmin() || isVendor(); }
+
+/**
+ * Calls the Apps Script Web App JSON API.
+ * GET is used for read-only actions (query string), POST for writes
+ * (text/plain body, which stays a CORS "simple request" and avoids a
+ * preflight OPTIONS call that Apps Script web apps cannot answer).
+ */
+function apiCall(action, payload, method) {
+  method = method || 'GET';
+  payload = Object.assign({}, payload || {}, { token: STATE.auth ? STATE.auth.token : '' });
+  var url = API_URL;
+  var opts = { method: method };
+  if (method === 'GET') {
+    url += '?action=' + encodeURIComponent(action) + '&payload=' + encodeURIComponent(JSON.stringify(payload));
+  } else {
+    opts.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
+    opts.body = JSON.stringify({ action: action, payload: payload });
+  }
+  showTopLoading_();
+  return fetch(url, opts)
+    .then(function (res) { return res.json(); })
+    .then(function (json) {
+      if (!json.ok) { throw new Error(json.error || 'API error'); }
+      return json.data;
+    })
+    .catch(function (err) {
+      var msg = err.message || String(err);
+      toast(msg, true);
+      if (/sesi berakhir|token tidak valid/i.test(msg) && action !== 'login') doLogout(msg);
+      throw err;
+    })
+    .finally(function () { hideTopLoading_(); });
+}
+
+/* ---------------------------------------------------------------- LOAD */
+
+function loadDashboard() {
+  apiCall('bootstrap').then(function (data) {
+    STATE.vendors = data.vendors;
+    STATE.pos = data.pos;
+    renderVendorFilter();
+    renderPOList();
+    _touchLastSync_();
+  });
+}
+
+/** In-app "Refresh" button: re-fetches current data over the API without
+ *  touching the session or reloading the page (unlike an actual browser
+ *  refresh, which forces a logout — see wasBrowserReload_()). */
+function refreshData_() {
+  var btn = document.getElementById('btnRefreshData');
+  btn.disabled = true;
+  var label = btn.textContent;
+  btn.innerHTML = '<span class="spinner"></span>...';
+
+  var tasks = [apiCall('bootstrap').then(function (data) {
+    STATE.vendors = data.vendors;
+    STATE.pos = data.pos;
+    renderVendorFilter();
+    renderPOList();
+  })];
+
+  if (STATE.currentPOId) {
+    tasks.push(apiCall('getWorkspace', { poId: STATE.currentPOId }).then(function (ws) {
+      STATE.workspace = ws;
+      renderWorkspace();
+    }));
+  }
+
+  Promise.all(tasks).then(function () {
+    toast('Data diperbarui');
+    _touchLastSync_();
+  }).finally(function () {
+    btn.disabled = false;
+    btn.textContent = label;
+  });
+}
+
+function _touchLastSync_() {
+  document.getElementById('lastSync').textContent = 'Terakhir disegarkan: ' + new Date().toLocaleTimeString('id-ID');
+}
+
+function renderVendorFilter() {
+  var sel = document.getElementById('vendorFilter');
+  sel.innerHTML = '<option value="">All Vendors</option>' + STATE.vendors.map(function (v) {
+    return '<option value="' + v.VendorID + '">' + escapeHtml(v.VendorName) + '</option>';
+  }).join('');
+}
+
+function renderPOList() {
+  var filter = document.getElementById('vendorFilter').value;
+  var list = document.getElementById('poList');
+  var rows = STATE.pos.filter(function (po) { return !filter || po.VendorID === filter; });
+  if (!rows.length) {
+    list.innerHTML = '<div class="empty-state" style="color:rgba(255,255,255,.6);">Belum ada PO. Klik + PO.</div>';
+    return;
+  }
+  list.innerHTML = rows.map(function (po) {
+    var pct = po.progress || 0;
+    return '<div class="po-item' + (po.POID === STATE.currentPOId ? ' active' : '') + '" onclick="selectPO(\'' + po.POID + '\')">'
+      + '<div class="po-title">' + escapeHtml(po.PONo || '(no PO No.)') + ' — ' + escapeHtml(po.VendorName) + '</div>'
+      + '<div class="po-sub">' + escapeHtml(po.Project || '') + '</div>'
+      + '<div class="po-bar"><div class="po-bar-fill" style="width:' + pct + '%;"></div></div>'
+      + '<div class="po-sub">' + pct + '% complete</div>'
+      + '</div>';
+  }).join('');
+}
+
+function selectPO(poId) {
+  STATE.currentPOId = poId;
+  renderPOList();
+  document.getElementById('tabs').style.display = 'flex';
+  document.getElementById('btnEditPO').style.display = isAdmin() ? 'inline-block' : 'none';
+  document.getElementById('btnDeletePO').style.display = isAdmin() ? 'inline-block' : 'none';
+  showContentLoading_();
+  apiCall('getWorkspace', { poId: poId }).then(function (ws) {
+    STATE.workspace = ws;
+    renderWorkspace();
+  }).catch(function () { hideContentLoading_(); });
+}
+
+function renderWorkspace() {
+  var ws = STATE.workspace;
+  document.getElementById('poTitle').textContent = (ws.po.PONo || '(no PO No.)') + ' — ' + ws.po.VendorName;
+  document.getElementById('poMeta').textContent = 'Project: ' + (ws.po.Project || '-') + '  |  Report ' + (ws.po.ReportNo || '-') + '  |  ' + (ws.po.ReportDate || '');
+
+  renderSummary();
+  renderMilestones();
+  renderSCurve();
+  renderDocuments();
+  renderSubVendor();
+  updateEditControlsVisibility_();
+
+  hideContentLoading_();
+  var activeBtn = document.querySelector('.tab-btn.active') || document.querySelector('.tab-btn');
+  var tab = activeBtn ? activeBtn.dataset.tab : 'summary';
+  document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+/** Hides Add/Delete buttons for view-only (User) accounts. Vendor accounts
+ *  keep full edit rights, but only ever see their own PO's data (enforced
+ *  both by the sidebar filter and server-side authorization). */
+function updateEditControlsVisibility_() {
+  var display = canEdit() ? '' : 'none';
+  ['btnAddMilestone', 'btnAddSCurve', 'btnAddDocument', 'btnAddItem'].forEach(function (id) {
+    document.getElementById(id).style.display = display;
+  });
+  document.querySelectorAll('.row-actions').forEach(function (td) { td.style.display = display; });
+  if (isViewer()) {
+    document.querySelectorAll('#content input, #content select').forEach(function (el) { el.disabled = true; });
+  }
+}
+
+/* ---------------------------------------------------------------- TABS */
+
+function bindStaticEvents() {
+  document.getElementById('vendorFilter').addEventListener('change', function () {
+    renderPOList();
+    var btn = document.getElementById('btnPrintAll');
+    btn.textContent = this.value ? '🖨 Print Vendor Report' : '🖨 Print All Vendors';
+  });
+
+  document.querySelectorAll('.tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  document.getElementById('btnAddVendor').addEventListener('click', openVendorForm);
+  document.getElementById('btnAddPO').addEventListener('click', openPOForm);
+  document.getElementById('btnEditPO').addEventListener('click', function () { openPOForm(STATE.workspace.po); });
+  document.getElementById('btnDeletePO').addEventListener('click', deleteCurrentPO);
+  document.getElementById('btnManageUsers').addEventListener('click', openUserManager);
+
+  document.getElementById('btnAddMilestone').addEventListener('click', addMilestoneRow);
+  document.getElementById('btnAddSCurve').addEventListener('click', addSCurveRow);
+  document.getElementById('btnAddDocument').addEventListener('click', addDocumentRow);
+  document.getElementById('btnAddItem').addEventListener('click', addSubVendorRow);
+
+  document.getElementById('btnRefreshData').addEventListener('click', refreshData_);
+  document.getElementById('btnPrintAll').addEventListener('click', printAllVendors);
+  document.getElementById('btnPrintSummary').addEventListener('click', printPOSummary);
+
+  document.getElementById('modalBackdrop').addEventListener('click', function (e) {
+    if (e.target === this) closeModal();
+  });
+}
+
+function closeModal() { document.getElementById('modalBackdrop').classList.remove('open'); }
+
+/* ---------------------------------------------------------------- MODAL FORM BUILDER */
+
+function openForm(title, fields, values, onSubmit) {
+  values = values || {};
+  var box = document.getElementById('modalBox');
+  box.innerHTML = '<h3>' + title + '</h3>' + fields.map(function (f) {
+    var val = values[f.key] !== undefined ? values[f.key] : '';
+    var ro = f.readonly ? ' readonly disabled' : '';
+    var input = f.type === 'select'
+      ? '<select id="f_' + f.key + '"' + ro + '>' + f.options.map(function (o) {
+          return '<option value="' + o.value + '"' + (String(o.value) === String(val) ? ' selected' : '') + '>' + o.label + '</option>';
+        }).join('') + '</select>'
+      : '<input id="f_' + f.key + '" type="' + (f.type || 'text') + '" value="' + escapeHtml(String(val)) + '"' + ro + '>';
+    return '<div class="field"><label>' + f.label + '</label>' + input + '</div>';
+  }).join('') + '<div class="modal-actions">'
+    + '<button class="btn secondary" onclick="closeModal()">Cancel</button>'
+    + '<button class="btn" id="modalSubmit">Save</button></div>';
+
+  document.getElementById('modalBackdrop').classList.add('open');
+  document.getElementById('modalSubmit').addEventListener('click', function () {
+    var out = {};
+    fields.forEach(function (f) {
+      out[f.key] = f.readonly ? values[f.key] : document.getElementById('f_' + f.key).value;
+    });
+    var btn = document.getElementById('modalSubmit');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Saving...';
+    var result = onSubmit(out);
+    if (result && result.finally) {
+      result.finally(function () {
+        if (document.getElementById('modalSubmit')) { btn.disabled = false; btn.textContent = 'Save'; }
+      });
+    }
+  });
+}
+
+/* ---------------------------------------------------------------- VENDOR / PO */
+
+function openVendorForm() {
+  openForm('New Vendor', [
+    { key: 'VendorName', label: 'Vendor Name' },
+    { key: 'Location', label: 'Location' },
+    { key: 'Contact1Name', label: 'Contact Name' },
+    { key: 'Contact1Email', label: 'Contact Email' }
+  ], {}, function (data) {
+    return apiCall('saveVendor', data, 'POST').then(function () {
+      toast('Vendor saved');
+      closeModal();
+      loadDashboard();
+    });
+  });
+}
+
+function openPOForm(existing) {
+  var vendorOptions = STATE.vendors.map(function (v) { return { value: v.VendorID, label: v.VendorName }; });
+  if (!vendorOptions.length) { toast('Tambahkan vendor dulu', true); return; }
+  openForm(existing && existing.POID ? 'Edit Purchase Order' : 'New Purchase Order', [
+    { key: 'VendorID', label: 'Vendor', type: 'select', options: vendorOptions },
+    { key: 'Project', label: 'Project' },
+    { key: 'PONo', label: 'PO No.' },
+    { key: 'PODescription', label: 'PO Description' },
+    { key: 'Quantity', label: 'Quantity' },
+    { key: 'ContractDeliveryDate', label: 'Contract Delivery Date', type: 'date' },
+    { key: 'ForecastDeliveryDate', label: 'Forecast Delivery Date', type: 'date' },
+    { key: 'ReportNo', label: 'Report No.' },
+    { key: 'ReportDate', label: 'Report Date', type: 'date' }
+  ], existing || {}, function (data) {
+    if (existing && existing.POID) data.POID = existing.POID;
+    return apiCall('savePO', data, 'POST').then(function (poId) {
+      toast('PO saved');
+      closeModal();
+      apiCall('bootstrap').then(function (d) {
+        STATE.vendors = d.vendors; STATE.pos = d.pos;
+        renderPOList();
+        selectPO(poId);
+      });
+    });
+  });
+}
+
+function deleteCurrentPO() {
+  if (!STATE.currentPOId) return;
+  if (!confirm('Hapus PO ini beserta semua data progress-nya?')) return;
+  apiCall('deletePO', { poId: STATE.currentPOId }, 'POST').then(function () {
+    toast('PO deleted');
+    STATE.currentPOId = null;
+    document.getElementById('tabs').style.display = 'none';
+    document.getElementById('btnEditPO').style.display = 'none';
+    document.getElementById('btnDeletePO').style.display = 'none';
+    document.getElementById('poTitle').textContent = 'Pilih Purchase Order';
+    document.getElementById('poMeta').textContent = '';
+    document.getElementById('panel-welcome').style.display = 'block';
+    loadDashboard();
+  });
+}
+
+/* ---------------------------------------------------------------- SUMMARY TAB */
+
+function renderSummary() {
+  var po = STATE.workspace.po;
+  var grid = document.getElementById('poInfoGrid');
+  var fields = [
+    ['Project', po.Project], ['PO No.', po.PONo], ['PO Description', po.PODescription],
+    ['Quantity', po.Quantity], ['Contract Delivery', po.ContractDeliveryDate],
+    ['Forecast Delivery', po.ForecastDeliveryDate], ['Vendor', po.VendorName], ['Location', po.Location]
+  ];
+  grid.innerHTML = fields.map(function (f) {
+    return '<div class="field"><label>' + f[0] + '</label><div>' + escapeHtml(String(f[1] || '-')) + '</div></div>';
+  }).join('');
+
+  var prog = STATE.workspace.progress;
+  document.getElementById('totalPct').textContent = prog.percent + '%';
+  document.getElementById('totalFill').style.width = Math.min(100, prog.percent) + '%';
+
+  var body = document.querySelector('#summaryTable tbody');
+  body.innerHTML = STATE.workspace.milestones.map(function (m) {
+    var earned = (Number(m.WeightFactor) * Number(m.AchievedPercent) / 100).toFixed(2);
+    return '<tr><td>' + escapeHtml(m.Activity || '') + '</td><td class="num">' + m.WeightFactor
+      + '</td><td class="num">' + m.AchievedPercent + '%</td><td class="num">' + earned + '</td></tr>';
+  }).join('') || '<tr><td colspan="4" class="empty-state">Belum ada milestone</td></tr>';
+}
+
+/* ---------------------------------------------------------------- MILESTONES TAB */
+
+function renderMilestones() {
+  var body = document.querySelector('#milestonesTable tbody');
+  body.innerHTML = STATE.workspace.milestones.map(function (m) {
+    return '<tr data-id="' + m.MilestoneID + '">'
+      + editCell(m, 'Activity', 'text')
+      + editCell(m, 'DetailActivity', 'text')
+      + editCell(m, 'PlanStart', 'date')
+      + editCell(m, 'PlanFinish', 'date')
+      + editCell(m, 'ActualStart', 'date')
+      + editCell(m, 'ActualFinish', 'date')
+      + editCell(m, 'WeightFactor', 'number')
+      + editCell(m, 'LastProgress', 'number')
+      + editCell(m, 'ThisProgress', 'number')
+      + '<td class="num" data-field="AchievedPercent">' + m.AchievedPercent + '%</td>'
+      + editCell(m, 'DetailsAchieved', 'text')
+      + '<td class="row-actions"><button class="btn danger sm" onclick="removeMilestone(\'' + m.MilestoneID + '\')">Del</button></td>'
+      + '</tr>';
+  }).join('') || rowEmpty(12);
+}
+
+function editCell(obj, key, type) {
+  var val = obj[key] === undefined || obj[key] === null ? '' : obj[key];
+  return '<td><input type="' + type + '" value="' + escapeHtml(String(val)) + '" '
+    + 'onchange="updateMilestoneField(\'' + obj.MilestoneID + '\',\'' + key + '\',this.value,this)"></td>';
+}
+
+function rowEmpty(colspan) { return '<tr><td colspan="' + colspan + '" class="empty-state">Belum ada data. Klik tombol + di atas.</td></tr>'; }
+
+function addMilestoneRow() {
+  setBusy_('btnAddMilestone', true);
+  apiCall('saveMilestone', { POID: STATE.currentPOId, Activity: 'New Activity', WeightFactor: 0, LastProgress: 0, ThisProgress: 0 }, 'POST')
+    .then(function (m) {
+      STATE.workspace.milestones.push(m);
+      renderMilestones();
+      applyProgressLocally_();
+    })
+    .finally(function () { setBusy_('btnAddMilestone', false); });
+}
+function updateMilestoneField(id, key, value, inputEl) {
+  var m = STATE.workspace.milestones.find(function (x) { return x.MilestoneID === id; });
+  var patch = { MilestoneID: id }; patch[key] = value;
+  markSaving_(inputEl);
+  apiCall('saveMilestone', Object.assign({}, m, patch), 'POST').then(function (updated) {
+    Object.assign(m, updated);
+    var row = document.querySelector('#milestonesTable tr[data-id="' + id + '"]');
+    if (row) row.querySelector('[data-field="AchievedPercent"]').textContent = m.AchievedPercent + '%';
+    applyProgressLocally_();
+    markSaved_(inputEl);
+  });
+}
+function removeMilestone(id) {
+  if (!confirm('Hapus baris ini?')) return;
+  apiCall('deleteMilestone', { id: id }, 'POST').then(function () {
+    STATE.workspace.milestones = STATE.workspace.milestones.filter(function (x) { return x.MilestoneID !== id; });
+    renderMilestones();
+    applyProgressLocally_();
+  });
+}
+
+/** Recompute weighted progress from the milestones already in memory (no
+ *  extra API call) and refresh the Summary tab + sidebar bar instantly. */
+function applyProgressLocally_() {
+  var totalWeight = 0, earned = 0;
+  STATE.workspace.milestones.forEach(function (m) {
+    var w = Number(m.WeightFactor) || 0;
+    var pct = Number(m.AchievedPercent) || 0;
+    totalWeight += w;
+    earned += (w * pct) / 100;
+  });
+  var percent = totalWeight ? Math.round((earned / totalWeight) * 10000) / 100 : 0;
+  STATE.workspace.progress = { totalWeight: totalWeight, earnedWeight: Math.round(earned * 100) / 100, percent: percent };
+  renderSummary();
+  var po = STATE.pos.find(function (p) { return p.POID === STATE.currentPOId; });
+  if (po) { po.progress = percent; renderPOList(); }
+}
+
+/* ---------------------------------------------------------------- SCURVE TAB */
+
+function renderSCurve() {
+  var rows = STATE.workspace.scurve;
+  var body = document.querySelector('#scurveTable tbody');
+  body.innerHTML = rows.map(function (s) {
+    return '<tr data-id="' + s.SCurveID + '">'
+      + editCellS(s, 'PeriodLabel', 'text')
+      + editCellS(s, 'PlanDate', 'date')
+      + editCellS(s, 'ActualDate', 'date')
+      + editCellS(s, 'PlanPercent', 'number')
+      + editCellS(s, 'ActualPercent', 'number')
+      + '<td class="row-actions"><button class="btn danger sm" onclick="removeSCurve(\'' + s.SCurveID + '\')">Del</button></td>'
+      + '</tr>';
+  }).join('') || rowEmpty(6);
+
+  drawChart(rows);
+}
+
+function editCellS(obj, key, type) {
+  var val = obj[key] === undefined || obj[key] === null ? '' : obj[key];
+  return '<td><input type="' + type + '" value="' + escapeHtml(String(val)) + '" '
+    + 'onchange="updateSCurveField(\'' + obj.SCurveID + '\',\'' + key + '\',this.value,this)"></td>';
+}
+
+function drawChart(rows) {
+  var ctx = document.getElementById('scurveChart');
+  var labels = rows.map(function (r) { return r.PeriodLabel; });
+  var plan = rows.map(function (r) { return Number(r.PlanPercent) * (Number(r.PlanPercent) <= 1 ? 100 : 1); });
+  var actual = rows.map(function (r) { return r.ActualPercent === '' ? null : Number(r.ActualPercent) * (Number(r.ActualPercent) <= 1 ? 100 : 1); });
+  if (STATE.chart) STATE.chart.destroy();
+  STATE.chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: labels, datasets: [
+      { label: 'Plan %', data: plan, borderColor: '#2e86de', tension: .3 },
+      { label: 'Actual %', data: actual, borderColor: '#2e9e5b', tension: .3 }
+    ]},
+    options: { scales: { y: { min: 0, max: 100 } }, plugins: { legend: { position: 'bottom' } }, animation: { duration: 250 } }
+  });
+}
+
+function addSCurveRow() {
+  var n = STATE.workspace.scurve.length + 1;
+  setBusy_('btnAddSCurve', true);
+  apiCall('saveSCurvePoint', { POID: STATE.currentPOId, PeriodLabel: 'Period ' + n, PlanPercent: 0, ActualPercent: 0 }, 'POST')
+    .then(function (s) {
+      STATE.workspace.scurve.push(s);
+      renderSCurve();
+    })
+    .finally(function () { setBusy_('btnAddSCurve', false); });
+}
+function updateSCurveField(id, key, value, inputEl) {
+  var s = STATE.workspace.scurve.find(function (x) { return x.SCurveID === id; });
+  var patch = { SCurveID: id }; patch[key] = value;
+  markSaving_(inputEl);
+  apiCall('saveSCurvePoint', Object.assign({}, s, patch), 'POST').then(function (updated) {
+    Object.assign(s, updated);
+    drawChart(STATE.workspace.scurve);
+    markSaved_(inputEl);
+  });
+}
+function removeSCurve(id) {
+  if (!confirm('Hapus baris ini?')) return;
+  apiCall('deleteSCurvePoint', { id: id }, 'POST').then(function () {
+    STATE.workspace.scurve = STATE.workspace.scurve.filter(function (x) { return x.SCurveID !== id; });
+    renderSCurve();
+  });
+}
+
+/* ---------------------------------------------------------------- DOCUMENTS TAB */
+
+function renderDocuments() {
+  var rows = STATE.workspace.documents;
+  var body = document.querySelector('#documentsTable tbody');
+  body.innerHTML = rows.map(function (d) {
+    return '<tr data-id="' + d.DocID + '">'
+      + editCellD(d, 'DocumentNo', 'text') + editCellD(d, 'DocumentTitle', 'text') + editCellD(d, 'Revision', 'text')
+      + '<td><select onchange="updateDocField(\'' + d.DocID + '\',\'DocumentStatus\',this.value,this)">'
+        + ['Open', 'In Progress', 'Approved', 'Closed'].map(function (s) {
+            return '<option' + (d.DocumentStatus === s ? ' selected' : '') + '>' + s + '</option>';
+          }).join('') + '</select></td>'
+      + editCellD(d, 'PlanSubmissionDate', 'date') + editCellD(d, 'PlanApprovalDate', 'date')
+      + editCellD(d, 'ActualSubmissionDate', 'date') + editCellD(d, 'ActualApprovalDate', 'date')
+      + editCellD(d, 'Remark', 'text')
+      + '<td class="row-actions"><button class="btn danger sm" onclick="removeDocument(\'' + d.DocID + '\')">Del</button></td>'
+      + '</tr>';
+  }).join('') || rowEmpty(10);
+}
+function editCellD(obj, key, type) {
+  var val = obj[key] === undefined || obj[key] === null ? '' : obj[key];
+  return '<td><input type="' + type + '" value="' + escapeHtml(String(val)) + '" '
+    + 'onchange="updateDocField(\'' + obj.DocID + '\',\'' + key + '\',this.value,this)"></td>';
+}
+function addDocumentRow() {
+  setBusy_('btnAddDocument', true);
+  apiCall('saveDocument', { POID: STATE.currentPOId, DocumentTitle: 'New Document', DocumentStatus: 'Open' }, 'POST')
+    .then(function (d) {
+      STATE.workspace.documents.push(d);
+      renderDocuments();
+    })
+    .finally(function () { setBusy_('btnAddDocument', false); });
+}
+function updateDocField(id, key, value, inputEl) {
+  var d = STATE.workspace.documents.find(function (x) { return x.DocID === id; });
+  var patch = { DocID: id }; patch[key] = value;
+  markSaving_(inputEl);
+  apiCall('saveDocument', Object.assign({}, d, patch), 'POST').then(function (updated) {
+    Object.assign(d, updated);
+    markSaved_(inputEl);
+  });
+}
+function removeDocument(id) {
+  if (!confirm('Hapus dokumen ini?')) return;
+  apiCall('deleteDocument', { id: id }, 'POST').then(function () {
+    STATE.workspace.documents = STATE.workspace.documents.filter(function (x) { return x.DocID !== id; });
+    renderDocuments();
+  });
+}
+
+/* ---------------------------------------------------------------- SUBVENDOR TAB */
+
+function renderSubVendor() {
+  var rows = STATE.workspace.subvendor;
+  var body = document.querySelector('#subvendorTable tbody');
+  body.innerHTML = rows.map(function (i) {
+    return '<tr data-id="' + i.ItemID + '">'
+      + editCellI(i, 'Description', 'text') + editCellI(i, 'Specification', 'text')
+      + editCellI(i, 'QtyRequired', 'number') + editCellI(i, 'Units', 'text')
+      + editCellI(i, 'Manufacturer', 'text') + editCellI(i, 'CountryOfOrigin', 'text')
+      + editCellI(i, 'DeliveryMode', 'text') + editCellI(i, 'ETAShop', 'date')
+      + editCellI(i, 'ArrivalDate', 'date') + editCellI(i, 'ArrivalQty', 'number')
+      + '<td class="num" data-field="Balance">' + i.Balance + '</td>'
+      + '<td class="row-actions"><button class="btn danger sm" onclick="removeItem(\'' + i.ItemID + '\')">Del</button></td>'
+      + '</tr>';
+  }).join('') || rowEmpty(12);
+}
+function editCellI(obj, key, type) {
+  var val = obj[key] === undefined || obj[key] === null ? '' : obj[key];
+  return '<td><input type="' + type + '" value="' + escapeHtml(String(val)) + '" '
+    + 'onchange="updateItemField(\'' + obj.ItemID + '\',\'' + key + '\',this.value,this)"></td>';
+}
+function addSubVendorRow() {
+  setBusy_('btnAddItem', true);
+  apiCall('saveSubVendorItem', { POID: STATE.currentPOId, Description: 'New Item', QtyRequired: 0, ArrivalQty: 0 }, 'POST')
+    .then(function (i) {
+      STATE.workspace.subvendor.push(i);
+      renderSubVendor();
+    })
+    .finally(function () { setBusy_('btnAddItem', false); });
+}
+function updateItemField(id, key, value, inputEl) {
+  var i = STATE.workspace.subvendor.find(function (x) { return x.ItemID === id; });
+  var patch = { ItemID: id }; patch[key] = value;
+  markSaving_(inputEl);
+  apiCall('saveSubVendorItem', Object.assign({}, i, patch), 'POST').then(function (updated) {
+    Object.assign(i, updated);
+    var row = document.querySelector('#subvendorTable tr[data-id="' + id + '"]');
+    if (row) row.querySelector('[data-field="Balance"]').textContent = i.Balance;
+    markSaved_(inputEl);
+  });
+}
+function removeItem(id) {
+  if (!confirm('Hapus item ini?')) return;
+  apiCall('deleteSubVendorItem', { id: id }, 'POST').then(function () {
+    STATE.workspace.subvendor = STATE.workspace.subvendor.filter(function (x) { return x.ItemID !== id; });
+    renderSubVendor();
+  });
+}
+
+/* ---------------------------------------------------------------- USER MANAGEMENT (Admin only) */
+
+function openUserManager() {
+  apiCall('listUsers', {}).then(function (users) {
+    var box = document.getElementById('modalBox');
+    box.innerHTML = '<h3>Manage Users</h3>'
+      + '<div class="table-wrap"><table><thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Vendor</th><th></th></tr></thead><tbody>'
+      + users.map(function (u) {
+          var vendorName = '';
+          if (u.VendorID) {
+            var v = STATE.vendors.find(function (x) { return x.VendorID === u.VendorID; });
+            vendorName = v ? v.VendorName : u.VendorID;
+          }
+          return '<tr><td>' + escapeHtml(u.Username) + '</td><td>' + escapeHtml(u.Name || '') + '</td>'
+            + '<td><span class="role-chip ' + u.Role + '">' + u.Role + '</span></td><td>' + escapeHtml(vendorName) + '</td>'
+            + '<td class="row-actions">'
+            + '<button class="btn secondary sm" onclick="openUserForm(\'' + u.Username + '\')">Edit</button> '
+            + (u.Username === 'admin' ? '' : '<button class="btn danger sm" onclick="removeUser(\'' + u.Username + '\')">Del</button>')
+            + '</td></tr>';
+        }).join('')
+      + '</tbody></table></div>'
+      + '<div class="modal-actions" style="justify-content:space-between;">'
+      + '<button class="btn" onclick="openUserForm()">+ New User</button>'
+      + '<button class="btn secondary" onclick="closeModal()">Close</button></div>';
+    document.getElementById('modalBackdrop').classList.add('open');
+    STATE._usersCache = users;
+  });
+}
+
+function openUserForm(username) {
+  var existing = username ? STATE._usersCache.find(function (u) { return u.Username === username; }) : null;
+  var vendorOptions = STATE.vendors.map(function (v) { return { value: v.VendorID, label: v.VendorName }; });
+  openForm(existing ? 'Edit User' : 'New User', [
+    { key: 'Username', label: 'Username' + (existing ? ' (tidak bisa diubah)' : ''), readonly: !!existing },
+    { key: 'Name', label: 'Full Name' },
+    { key: 'Password', label: 'Password' + (existing ? ' (kosongkan jika tidak diganti)' : ''), type: 'password' },
+    { key: 'Role', label: 'Role', type: 'select', options: [
+        { value: 'Admin', label: 'Admin (full access)' },
+        { value: 'Vendor', label: 'Vendor (own data only)' },
+        { value: 'User', label: 'User (view only)' }
+      ] },
+    { key: 'VendorID', label: 'Linked Vendor (khusus Role=Vendor)', type: 'select', options: [{ value: '', label: '-' }].concat(vendorOptions) }
+  ], existing || { Role: 'User' }, function (data) {
+    return call_saveUser_(data);
+  });
+}
+
+function call_saveUser_(data) {
+  return apiCall('saveUserAccount', data, 'POST').then(function () {
+    toast('User saved');
+    closeModal();
+    openUserManager();
+  });
+}
+
+function removeUser(username) {
+  if (!confirm('Hapus user "' + username + '"?')) return;
+  apiCall('deleteUserAccount', { username: username }, 'POST').then(function () {
+    toast('User deleted');
+    openUserManager();
+  });
+}
+
+/* ---------------------------------------------------------------- PRINT / REPORT */
+
+function printHeader_(subtitle) {
+  return '<h1>Vendor Progress Report</h1>'
+    + '<div style="font-size:12px;color:#555;margin-bottom:14px;">' + subtitle
+    + ' &nbsp;·&nbsp; Dicetak oleh ' + escapeHtml(STATE.auth ? STATE.auth.name : '-')
+    + ' pada ' + new Date().toLocaleString('id-ID') + '</div>';
+}
+
+/** Print the currently open PO: info, total weighted progress, and the
+ *  milestone breakdown — using data already loaded client-side (no extra
+ *  API call needed). */
+function printPOSummary() {
+  var ws = STATE.workspace;
+  if (!ws) { toast('Pilih PO terlebih dahulu', true); return; }
+  var prog = ws.progress;
+
+  var rows = ws.milestones.map(function (m) {
+    return '<tr><td>' + escapeHtml(m.Activity || '') + '</td><td>' + escapeHtml(m.DetailActivity || '')
+      + '</td><td>' + m.WeightFactor + '</td><td>' + m.AchievedPercent + '%</td></tr>';
+  }).join('') || '<tr><td colspan="4">Belum ada milestone</td></tr>';
+
+  var html = printHeader_('Summary Report — ' + escapeHtml(ws.po.VendorName))
+    + '<table style="width:100%;margin-bottom:14px;"><tbody>'
+    + '<tr><td style="width:140px;"><b>Vendor</b></td><td>' + escapeHtml(ws.po.VendorName) + '</td>'
+    + '<td style="width:140px;"><b>PO No.</b></td><td>' + escapeHtml(ws.po.PONo || '-') + '</td></tr>'
+    + '<tr><td><b>Project</b></td><td>' + escapeHtml(ws.po.Project || '-') + '</td>'
+    + '<td><b>Quantity</b></td><td>' + escapeHtml(String(ws.po.Quantity || '-')) + '</td></tr>'
+    + '<tr><td><b>Contract Delivery</b></td><td>' + escapeHtml(ws.po.ContractDeliveryDate || '-') + '</td>'
+    + '<td><b>Forecast Delivery</b></td><td>' + escapeHtml(ws.po.ForecastDeliveryDate || '-') + '</td></tr>'
+    + '<tr><td><b>Report No.</b></td><td>' + escapeHtml(ws.po.ReportNo || '-') + '</td>'
+    + '<td><b>Report Date</b></td><td>' + escapeHtml(ws.po.ReportDate || '-') + '</td></tr>'
+    + '</tbody></table>'
+    + '<h3 style="margin:6px 0;">Total Weighted Progress: ' + prog.percent + '%</h3>'
+    + '<table><thead><tr><th>Activity</th><th>Detail</th><th>Weight</th><th>Achieved %</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table>';
+
+  document.getElementById('printArea').innerHTML = html;
+  window.print();
+}
+
+/** Print a consolidated report across every vendor/PO the current user can
+ *  see — or, if a vendor is selected in the sidebar filter, a per-vendor
+ *  report for just that vendor. Uses data already in memory (no extra call). */
+function printAllVendors() {
+  if (!STATE.pos.length) { toast('Belum ada data PO', true); return; }
+
+  var filterId = document.getElementById('vendorFilter').value;
+  var scoped = filterId ? STATE.pos.filter(function (po) { return po.VendorID === filterId; }) : STATE.pos;
+  var vendorName = filterId ? (STATE.vendors.find(function (v) { return v.VendorID === filterId; }) || {}).VendorName : null;
+
+  if (!scoped.length) { toast('Tidak ada PO untuk vendor ini', true); return; }
+
+  var rows = scoped.slice().sort(function (a, b) {
+    return (a.VendorName || '').localeCompare(b.VendorName || '');
+  }).map(function (po) {
+    return '<tr><td>' + escapeHtml(po.VendorName || '') + '</td><td>' + escapeHtml(po.PONo || '-')
+      + '</td><td>' + escapeHtml(po.Project || '-') + '</td><td>' + escapeHtml(po.ReportDate || '-')
+      + '</td><td>' + (po.progress || 0) + '%</td></tr>';
+  }).join('');
+
+  var avg = Math.round((scoped.reduce(function (s, po) { return s + (Number(po.progress) || 0); }, 0) / scoped.length) * 100) / 100;
+  var title = vendorName ? ('Vendor Report — ' + vendorName + ' (' + scoped.length + ' PO)') : ('Consolidated Report — Semua Vendor (' + scoped.length + ' PO)');
+
+  var html = printHeader_(title)
+    + '<h3 style="margin:6px 0;">Rata-rata Progress: ' + avg + '%</h3>'
+    + '<table><thead><tr><th>Vendor</th><th>PO No.</th><th>Project</th><th>Report Date</th><th>Progress</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table>';
+
+  document.getElementById('printArea').innerHTML = html;
+  window.print();
+}
+
+/* ---------------------------------------------------------------- HELPERS */
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+</script>
+
+</body>
+</html>
