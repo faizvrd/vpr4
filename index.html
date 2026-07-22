@@ -462,7 +462,7 @@ function bindAuthEvents() {
   document.getElementById('loginPassword').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') doLogin();
   });
-  document.getElementById('btnLogout').addEventListener('click', doLogout);
+  document.getElementById('btnLogout').addEventListener('click', () => doLogout());
 }
 
 function doLogin() {
@@ -489,17 +489,20 @@ function doLogin() {
   });
 }
 
-function doLogout(reason) {
+function doLogout(reason = '') {
   STATE.auth = null;
   STATE.currentPOId = null;
   STATE.workspace = null;
+
   localStorage.removeItem('vpr_auth');
   stopIdleTimer_();
+
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('app').classList.add('hidden');
+
   document.getElementById('loginUsername').value = '';
   document.getElementById('loginPassword').value = '';
-  if (reason) document.getElementById('loginError').textContent = reason;
+  document.getElementById('loginError').textContent = reason;
 }
 
 function showApp_() {
